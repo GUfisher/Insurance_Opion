@@ -354,7 +354,12 @@ def get_futures_contract_info(ts_code):
     :param ts_code: 期货合约代码
     :return: dict 包含上市日期和到期日期
     """
-    df = pro.fut_basic(ts_code=ts_code,exchange=ts_code.split('.')[1])
+    if ts_code.split('.')[1]=='ZCE':
+        exchange='CZCE'
+    else:
+        exchange=ts_code.split('.')[1]
+        
+    df = pro.fut_basic(ts_code=ts_code,exchange=exchange)
     if not df.empty:
         list_date = df.iloc[0]['list_date']
         delist_date = df.iloc[0]['delist_date']
@@ -400,7 +405,7 @@ st.set_page_config(page_title="保险+期货报价")
 
 st.title("保险+期货 报价程序")
 try:
-    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=300)
+    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=400)
 except:
     pass
 
@@ -555,4 +560,3 @@ else:
     volatility = calculate_historical_volatility(daily_data, 30)
 
 st.write(f'历史波动率:{round(volatility,2)}')   
-
