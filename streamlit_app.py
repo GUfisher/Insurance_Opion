@@ -299,7 +299,7 @@ def calculate_historical_volatility(daily_data, days):
     recent_data = daily_data.tail(days)
     
     # 计算年化波动率
-    volatility = np.std(recent_data['log_return']) * np.sqrt(252)  # 252 为一年交易日数
+    volatility = np.std(recent_data['log_return']) * np.sqrt(244)  # 252 为一年交易日数
     
     return volatility
 
@@ -394,7 +394,7 @@ def calculate_option_maturities(list_date, delist_date):
 
 
 # 初始化期权期限列表
-available_maturities = ["1个月", "2个月", "3个月", "4个月",'5个月','6个月']
+available_maturities = ["1个月", "2个月", "3个月", "4个月"]
 
 
 # Streamlit布局美化
@@ -405,7 +405,7 @@ st.set_page_config(page_title="保险+期货报价")
 
 st.title("保险+期货 报价程序")
 try:
-    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=300)
+    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=400)
 except:
     pass
 
@@ -429,7 +429,7 @@ with col1:
     )
 
     # 使用动态更新的可选期限
-    maturity = st.multiselect("期限", ["1个月", "2个月", "3个月", "4个月",'5个月','6个月'],default=['1个月'])
+    maturity = st.multiselect("期限", ["1个月", "2个月", "3个月", "4个月"],default=['1个月'])
     
     # 根据所选期限自动计算 maturity_input
     maturity_input_list = [int(m.split('个月')[0]) * 22 for m in maturity]
@@ -438,12 +438,21 @@ with col1:
 
 with col2:
     st.header("定价参数")
+    daily_data = get_futures_daily(underlying, '1999-01-01', '2099-01-04')
+            
+    if daily_data.empty:
+        st.write(f"没有找到 {underlying} 的价格数据。")
+    else:
+        # 计算历史波动率
+        volatility = calculate_historical_volatility(daily_data, 22)
+  
     Insurance_scale = st.number_input("保费规模", value=2000000)
-    spot_price = st.number_input("入场价格", value=100)
-    strike_price = st.number_input("行权价格", value=100)
+    spot_price = st.number_input("入场价格", value=round(daily_data['close'].to_list()[-1],2),step=1.0)
+    strike_ratio = st.number_input("行权比率", value=1)
+    strike_price= round(spot_price*strike_ratio,2)
     barrier_price = st.number_input("赔付障碍", value=None)
     volatility1 = st.number_input("定价波动率", value=0.25)
-    volatility2 = st.number_input("对冲波动率", value=0.15)
+    volatility2 = st.number_input("对冲波动率", round(volatility,2))
     r = st.number_input("无风险利率", value=0.01)
     N = st.number_input("模拟次数", value=10000, step=1000)
 
@@ -493,7 +502,7 @@ with col3:
                 trade_num = round(Insurance_scale * (1 - 0.05 - 0.3) / price, 2)
                 rights_fee = round(trade_num * price + Insurance_scale * 0.3, 2)
                 insurance_fee = round(trade_num * price / 0.65, 2)
-
+                
                 result_data.append({
                     "期权类型": option_type,
                     "标的代码": underlying,
@@ -507,7 +516,8 @@ with col3:
                     '权利金': rights_fee,
                     '保费': insurance_fee,
                     '入场手数': int(hedge.delta * trade_num / int(multiplier)),
-                    '权利金率': round(price / strike_price / 0.65 * 0.95, 4),
+                    '报价权利金率': round(price / strike_price / 0.65 * 0.95, 4),
+                    '实际权利金率': round(price / strike_price , 4),
                     '保费率': round(price / strike_price / 0.65, 4)
                 })
 
@@ -551,12 +561,7 @@ if contract_info:
 
 else:
     st.write('未读取到相关信息')
-daily_data = get_futures_daily(underlying, '1999-01-01', '2099-01-04')
-            
-if daily_data.empty:
-    st.write(f"没有找到 {underlying} 的价格数据。")
-else:
-    # 计算历史波动率
-    volatility = calculate_historical_volatility(daily_data, 30)
 
-st.write(f'历史波动率:{round(volatility,2)}')   
+
+
+
