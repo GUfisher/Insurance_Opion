@@ -439,9 +439,12 @@ with col1:
     available_maturities,maxtradingday = calculate_option_maturities(contract_info['list_date'], contract_info['delist_date'])
     maturity = st.multiselect("期限", ["1个月", "2个月", "3个月", "4个月",f"最长期限({maxtradingday}天)"],default=available_maturities)
     # 根据所选期限自动计算 maturity_input
-    maturity_input_list = [int(m.split('个月')[0]) * 22 for m in maturity[:-1]]
-    maturity_input_list.append(maxtradingday)
-
+    maturity_input_list=[]
+    for i in maturity:
+        try:
+            maturity_input_list.append(int(i.split('个月')[0]) * 22)
+        except:
+            maturity_input_list.append(maxtradingday)
    
 
 with col2:
