@@ -411,7 +411,7 @@ st.set_page_config(page_title="保险+期货报价")
 
 st.title("保险+期货 报价程序")
 try:
-    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=400)
+    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=300)
 except:
     pass
 
