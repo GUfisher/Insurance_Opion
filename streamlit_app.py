@@ -375,6 +375,12 @@ def calculate_option_maturities(list_date, delist_date):
     :param delist_date: 到期日期
     :return: list 可选择的期权期限
     """
+    
+    today = datetime.datetime.today().strftime('%Y%m%d')
+    cal_df = pro.trade_cal(exchange='SSE', start_date=str(today), end_date=str(delist_date), fields='cal_date,is_open')
+    trading_days = cal_df[cal_df['is_open'] == 1]
+    trading_day_count = len(trading_days)
+    
     # 转换为 datetime 对象
     list_date = datetime.datetime.strptime(list_date, '%Y%m%d')
     delist_date = datetime.datetime.strptime(delist_date, '%Y%m%d')
@@ -383,13 +389,13 @@ def calculate_option_maturities(list_date, delist_date):
     current_date = datetime.datetime.now()
     remaining_months = (delist_date.year - current_date.year) * 12 + (delist_date.month - current_date.month)
     
+    
     # 生成可选的期权期限（单位：月份）
     maturities = []
     for i in range(1, remaining_months + 1):
         maturities.append(f'{i}个月')
     
-    return maturities
-
+    return maturities,trading_day_count
 
 
 
@@ -405,7 +411,7 @@ st.set_page_config(page_title="保险+期货报价")
 
 st.title("保险+期货 报价程序")
 try:
-    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=300)
+    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=400)
 except:
     pass
 
@@ -429,10 +435,11 @@ with col1:
     )
 
     # 使用动态更新的可选期限
-    maturity = st.multiselect("期限", ["1个月", "2个月", "3个月", "4个月"],default=['1个月'])
-    
+    available_maturities,maxtradingday = calculate_option_maturities(contract_info['list_date'], contract_info['delist_date'])
+    maturity = st.multiselect("期限", ["1个月", "2个月", "3个月", "4个月",f"最长期限({maxtradingday}天)"],default=available_maturities)
     # 根据所选期限自动计算 maturity_input
-    maturity_input_list = [int(m.split('个月')[0]) * 22 for m in maturity]
+    maturity_input_list = [int(m.split('个月')[0]) * 22 for m in maturity[:-1]]
+    maturity_input_list.append(maxtradingday)
 
    
 
@@ -553,14 +560,9 @@ with col3:
         st.dataframe(results_df.T)
         st.write('Excel报价')
         st.dataframe(table_data)
-        
-        
-if contract_info:
-    available_maturities = calculate_option_maturities(contract_info['list_date'], contract_info['delist_date'])
-    st.write(f"期货合约 {underlying} 的基本信息：上市日期: {contract_info['list_date']}，到期日期: {contract_info['delist_date']}，合约乘数: {contract_info['per_unit']}，可选期权期限: {', '.join(available_maturities)}")
 
-else:
-    st.write('未读取到相关信息')
+st.table(pd.DataFrame({'交易所名称':['郑州商品交易所','上海期货交易所','大连商品交易所','上海证券交易所','深圳证券交易所','中国金融期货交易所'],'交易所代码':['CZCE','SHFE','DCE','SSE','SZSE','CFFEX'],'合约后缀':['.ZCE','.SHF','.DCE','.SH','.SZ','.CFX']}))
+
 
 
 
