@@ -398,11 +398,6 @@ def calculate_option_maturities(list_date, delist_date):
     return maturities,trading_day_count
 
 
-
-# 初始化期权期限列表
-available_maturities = ["1个月", "2个月", "3个月", "4个月"]
-
-
 # Streamlit布局美化
 
 st.set_page_config(page_title="保险+期货报价")
