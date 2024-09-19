@@ -17,7 +17,7 @@ pro = ts.pro_api()
 warnings.filterwarnings('ignore')
 
 class OTCOptionPricingSystem:
-    def __init__(self, S, K, maturity, r, q, sigma, n, N, payoff, option_type='Exotic', Ayear=244, unit=1, title='Option Pricing'):
+    def __init__(self, S, K, maturity, r, q, sigma, n, N, payoff, option_type='Exotic', Ayear=244, unit=1, title='Option Pricing',seed=0):
         self.S = S
         self.K = K
         self.maturity = maturity
@@ -34,6 +34,7 @@ class OTCOptionPricingSystem:
         self.T = self.maturity / self.Ayear  # 年化到期时间
         self.steps = int(self.n * self.maturity)
         self.dt = 1 / self.n / self.Ayear
+        self.seed=seed
 
         self.W = None
         self.geo_paths = None
@@ -52,7 +53,7 @@ class OTCOptionPricingSystem:
         self.initial_price = None  # 缓存初始价格
 
     def generate_paths(self):
-        np.random.seed(0)
+        np.random.seed(self.seed)
         norm_matrix = np.random.normal(size=(self.steps, self.N))
         ST = np.log(self.S[-1]) + np.cumsum(
             ((self.r - self.q - self.sigma**2 / 2) * self.dt + self.sigma * np.sqrt(self.dt) * norm_matrix),
@@ -398,6 +399,8 @@ def calculate_option_maturities(list_date, delist_date):
     return maturities,trading_day_count
 
 
+
+
 # Streamlit布局美化
 
 st.set_page_config(page_title="保险+期货报价")
@@ -406,11 +409,12 @@ st.set_page_config(page_title="保险+期货报价")
 
 st.title("保险+期货 报价程序")
 try:
-    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="", width=300)
+    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="")
 except:
     pass
 
 st.table(pd.DataFrame({'交易所名称':['郑州商品交易所','上海期货交易所','大连商品交易所','上海证券交易所','深圳证券交易所','中国金融期货交易所'],'交易所代码':['CZCE','SHFE','DCE','SSE','SZSE','CFFEX'],'合约后缀':['.ZCE','.SHF','.DCE','.SH','.SZ','.CFX']}))
+
 col1, col2, col3 = st.columns([40, 40, 60])
 with col1:
     st.header("期权信息")
@@ -440,6 +444,7 @@ with col1:
             maturity_input_list.append(int(i.split('个月')[0]) * 22)
         except:
             maturity_input_list.append(maxtradingday)
+            
    
 
 with col2:
@@ -461,6 +466,7 @@ with col2:
     volatility2 = st.number_input("对冲波动率", round(volatility,2))
     r = st.number_input("无风险利率", value=0.01)
     N = st.number_input("模拟次数", value=10000, step=1000)
+    random_seed = st.number_input("随机数种子", value=0)
 
 def get_payoff_function(option_type, CP, strike_price, barrier_price):
     if option_type == "欧式期权" and CP == '看涨':
@@ -495,11 +501,11 @@ with col3:
                 
                 payoff_func = get_payoff_function(option_type, CP, strike_price, barrier_price)
                 S = [spot_price]
-                option = OTCOptionPricingSystem(S=S, K=strike_price, maturity=maturity_input, r=r, q=0, sigma=volatility1, n=10, N=N, payoff=payoff_func, option_type=option_type)
+                option = OTCOptionPricingSystem(S=S, K=strike_price, maturity=maturity_input, r=r, q=0, sigma=volatility1, n=10, N=N, payoff=payoff_func, option_type=option_type,seed=random_seed)
                 option.generate_paths()
                 price = option.cal_price()
                 
-                hedge = OTCOptionPricingSystem(S=S, K=strike_price, maturity=maturity_input, r=r, q=0, sigma=volatility2, n=10, N=N, payoff=payoff_func, option_type=option_type)
+                hedge = OTCOptionPricingSystem(S=S, K=strike_price, maturity=maturity_input, r=r, q=0, sigma=volatility2, n=10, N=N, payoff=payoff_func, option_type=option_type,seed=random_seed)
                 hedge.generate_paths()
                 hedge.cal_price()
                 hedge.Greeks(name='delta')
@@ -559,6 +565,7 @@ with col3:
         st.dataframe(results_df.T)
         st.write('Excel报价')
         st.dataframe(table_data)
+
 
 
 
