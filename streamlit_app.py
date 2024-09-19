@@ -415,6 +415,7 @@ try:
 except:
     pass
 
+st.table(pd.DataFrame({'交易所名称':['郑州商品交易所','上海期货交易所','大连商品交易所','上海证券交易所','深圳证券交易所','中国金融期货交易所'],'交易所代码':['CZCE','SHFE','DCE','SSE','SZSE','CFFEX'],'合约后缀':['.ZCE','.SHF','.DCE','.SH','.SZ','.CFX']}))
 col1, col2, col3 = st.columns([40, 40, 60])
 with col1:
     st.header("期权信息")
@@ -561,7 +562,7 @@ with col3:
         st.write('Excel报价')
         st.dataframe(table_data)
 
-st.table(pd.DataFrame({'交易所名称':['郑州商品交易所','上海期货交易所','大连商品交易所','上海证券交易所','深圳证券交易所','中国金融期货交易所'],'交易所代码':['CZCE','SHFE','DCE','SSE','SZSE','CFFEX'],'合约后缀':['.ZCE','.SHF','.DCE','.SH','.SZ','.CFX']}))
+
 
 
 
