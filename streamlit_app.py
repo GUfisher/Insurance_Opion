@@ -285,7 +285,7 @@ def create_dual_axis_chart(x, y1, y2, key_points=None, use_dual_axis=True,
     # 添加第一条数据线（左侧 y 轴或单一 y 轴）
     fig.add_trace(go.Scatter(
         x=x, y=y1, 
-        mode='lines+markers',
+        mode='lines',
         name=series1_name,
         line=dict(color='cyan', width=4),
         marker=dict(size=10, color='cyan', symbol='circle', line=dict(color='white', width=2)),
@@ -298,7 +298,7 @@ def create_dual_axis_chart(x, y1, y2, key_points=None, use_dual_axis=True,
     # 添加第二条数据线（如果使用双轴则为右侧 y 轴）
     fig.add_trace(go.Scatter(
         x=x, y=y2, 
-        mode='lines+markers',
+        mode='lines',
         name=series2_name,
         line=dict(color='magenta', width=4),
         marker=dict(size=10, color='magenta', symbol='circle', line=dict(color='white', width=2)),
