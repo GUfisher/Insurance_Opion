@@ -1,3 +1,7 @@
+import os
+import subprocess
+import sys
+from dateutil.relativedelta import relativedelta
 import streamlit as st
 import numpy as np
 import plotly.express as px
@@ -305,6 +309,88 @@ def calculate_historical_volatility(daily_data, days):
     return volatility
 
 
+
+# 获取期货合约的基础信息
+def get_futures_contract_info(ts_code):
+    """
+    获取期货合约的基本信息，包括上市日期和到期日期
+    :param ts_code: 期货合约代码
+    :return: dict 包含上市日期和到期日期
+    """
+    if ts_code.split('.')[1]=='ZCE':
+        exchange='CZCE'
+    else:
+        exchange=ts_code.split('.')[1]
+        
+    df = pro.fut_basic(ts_code=ts_code,exchange=exchange)
+    if not df.empty:
+        list_date = df.iloc[0]['list_date']
+        delist_date = df.iloc[0]['delist_date']
+        per_unit= df.iloc[0]['per_unit']
+        return {'list_date': list_date, 'delist_date': delist_date ,'per_unit' : per_unit}
+    return None
+
+# 根据合约信息计算可选择的期权期限
+def calculate_option_maturities(list_date, delist_date):
+    """
+    根据期货合约的上市日期和到期日期计算期权可选期限和剩余交易天数（假设每个月有22个交易日）
+    :param list_date: 上市日期 (格式: 'YYYYMMDD')
+    :param delist_date: 到期日期 (格式: 'YYYYMMDD')
+    :return: list 可选择的期权期限 和 到期日前剩余的交易日数
+    """
+    # 将日期字符串转换为 datetime 对象
+    list_date = datetime.datetime.strptime(list_date, '%Y%m%d')
+    delist_date = datetime.datetime.strptime(delist_date, '%Y%m%d')
+
+    # 获取当前日期
+    today = datetime.datetime.today()
+
+    # 确定合约到期前一个月的15号
+    if delist_date.month == 1:
+        # 如果到期日在1月，则前一个月的15号为前一年的12月15日
+        previous_month_15th = datetime.datetime(delist_date.year - 1, 12, 15)
+    else:
+        # 否则，计算前一个月的15号
+        previous_month_15th = datetime.datetime(delist_date.year, delist_date.month - 1, 15)
+
+    # 计算从今天到前一个月15号之间的天数
+    days_difference = abs((previous_month_15th - today).days)
+
+    # 假设每个月有22个交易日，计算剩余的交易天数
+    trading_days = (days_difference / 30) * 22  # 按每个月22个交易日估算
+
+    # 计算从当前日期到到期日前一个月15号的剩余月份数
+    remaining_months = (previous_month_15th.year - today.year) * 12 + (previous_month_15th.month - today.month)
+
+    # 生成可选的期权期限列表（单位：月份）
+    if trading_days >= remaining_months*22:
+        maturities = [f'{i}个月' for i in range(1, remaining_months + 1)]
+    else:
+        maturities = [f'{i}个月' for i in range(1, remaining_months)]
+        
+    return maturities, round(trading_days)
+
+
+# 根据当前日期匹配指定交易日天数后的日期
+def get_future_trading_date(trading_days_after=22):
+    """
+    根据当前日期，返回指定交易日数量之后的日期
+    :param trading_days_after: 交易日数，默认为22
+    :return: 未来的交易日日期 (格式: 'YYYY-MM-DD')
+    """
+
+    # 获取当前日期
+    today = datetime.datetime.today()
+    if trading_days_after %22 ==0:
+        future_trading_date = today+relativedelta(months=trading_days_after//22) # 索引从0开始，取第22个交易日
+    else:
+        future_trading_date = today+datetime.timedelta(round(trading_days_after/22*30))
+    future_trading_date=future_trading_date.strftime('%Y%m%d')
+
+    return future_trading_date
+
+
+
 def call_payoff(close, k ,B=None):
     if B==None:
         return max(close[-1] - k, 0)
@@ -348,59 +434,6 @@ def Enhanced_Asian_put_payoff(close, k ,B=None):
         return max(max(k - settle, 0),0)
     
 
-# 获取期货合约的基础信息
-def get_futures_contract_info(ts_code):
-    """
-    获取期货合约的基本信息，包括上市日期和到期日期
-    :param ts_code: 期货合约代码
-    :return: dict 包含上市日期和到期日期
-    """
-    if ts_code.split('.')[1]=='ZCE':
-        exchange='CZCE'
-    else:
-        exchange=ts_code.split('.')[1]
-        
-    df = pro.fut_basic(ts_code=ts_code,exchange=exchange)
-    if not df.empty:
-        list_date = df.iloc[0]['list_date']
-        delist_date = df.iloc[0]['delist_date']
-        per_unit= df.iloc[0]['per_unit']
-        return {'list_date': list_date, 'delist_date': delist_date ,'per_unit' : per_unit}
-    return None
-
-# 根据合约信息计算可选择的期权期限
-def calculate_option_maturities(list_date, delist_date):
-    """
-    根据期货合约的上市日期和到期日期计算期权可选期限
-    :param list_date: 上市日期
-    :param delist_date: 到期日期
-    :return: list 可选择的期权期限
-    """
-    
-    today = datetime.datetime.today().strftime('%Y%m%d')
-    cal_df = pro.trade_cal(exchange='SSE', start_date=str(today), end_date=str(delist_date), fields='cal_date,is_open')
-    trading_days = cal_df[cal_df['is_open'] == 1]
-    trading_day_count = len(trading_days)
-    
-    # 转换为 datetime 对象
-    list_date = datetime.datetime.strptime(list_date, '%Y%m%d')
-    delist_date = datetime.datetime.strptime(delist_date, '%Y%m%d')
-    
-    # 计算从当前日期到合约到期的月份数
-    current_date = datetime.datetime.now()
-    remaining_months = (delist_date.year - current_date.year) * 12 + (delist_date.month - current_date.month)
-    
-    
-    # 生成可选的期权期限（单位：月份）
-    maturities = []
-    for i in range(1, remaining_months + 1):
-        maturities.append(f'{i}个月')
-    
-    return maturities,trading_day_count
-
-
-
-
 # Streamlit布局美化
 
 st.set_page_config(page_title="保险+期货报价")
@@ -409,7 +442,7 @@ st.set_page_config(page_title="保险+期货报价")
 
 st.title("保险+期货 报价程序")
 try:
-    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="",width=300)
+    st.image('https://pica.zhimg.com/80/v2-5d6b7ebf0e05e4babe05153463fe38fb_1440w.png', caption="")
 except:
     pass
 
@@ -418,7 +451,7 @@ st.table(pd.DataFrame({'交易所名称':['郑州商品交易所','上海期货�
 col1, col2, col3 = st.columns([40, 40, 60])
 with col1:
     st.header("期权信息")
-    underlying = st.text_input("标的资产", value='LH2411.DCE')
+    underlying = st.text_input("标的资产", value='LH2503.DCE')
     contract_info = get_futures_contract_info(underlying)
     multiplier = st.text_input("合约乘数", value=int(contract_info['per_unit']))
     tradeway = st.selectbox("交易方式", ('海通卖出', '海通买入'))
@@ -436,7 +469,7 @@ with col1:
 
     # 使用动态更新的可选期限
     available_maturities,maxtradingday = calculate_option_maturities(contract_info['list_date'], contract_info['delist_date'])
-    maturity = st.multiselect("期限", ["1个月", "2个月", "3个月", "4个月",f"最长期限({maxtradingday}天)"],default=available_maturities)
+    maturity = st.multiselect("期限", ["1个月", "2个月", "3个月", "4个月",f"最长期限({maxtradingday}天)"],default=available_maturities[:4]+[f"最长期限({maxtradingday}天)"])
     # 根据所选期限自动计算 maturity_input
     maturity_input_list=[]
     for i in maturity:
@@ -458,10 +491,10 @@ with col2:
         volatility = calculate_historical_volatility(daily_data, 22)
   
     Insurance_scale = st.number_input("保费规模", value=2000000)
-    spot_price = st.number_input("入场价格", value=round(daily_data['close'].to_list()[-1],2),step=1.0)
-    strike_ratio = st.number_input("行权比率", value=1)
+    spot_price = st.number_input("入场价格", value=round(daily_data['close'].to_list()[-1],2),step=1.0,max_value=round(daily_data['close'].to_list()[-1]*1.1,2),min_value=round(daily_data['close'].to_list()[-1]*0.9,2))
+    strike_ratio = float(st.text_input("行权比率", value='1'))
     strike_price= round(spot_price*strike_ratio,2)
-    barrier_price = st.number_input("赔付障碍", value=None)
+    barrier_price = st.number_input("赔付障碍", value=None,step=0.01)
     volatility1 = st.number_input("定价波动率", value=0.25)
     volatility2 = st.number_input("对冲波动率", round(volatility,2))
     r = st.number_input("无风险利率", value=0.01)
@@ -498,64 +531,68 @@ with col3:
 
         for option_type in selected_options:
             for maturity_input in maturity_input_list:
-                
-                payoff_func = get_payoff_function(option_type, CP, strike_price, barrier_price)
-                S = [spot_price]
-                option = OTCOptionPricingSystem(S=S, K=strike_price, maturity=maturity_input, r=r, q=0, sigma=volatility1, n=10, N=N, payoff=payoff_func, option_type=option_type,seed=random_seed)
-                option.generate_paths()
-                price = option.cal_price()
-                
-                hedge = OTCOptionPricingSystem(S=S, K=strike_price, maturity=maturity_input, r=r, q=0, sigma=volatility2, n=10, N=N, payoff=payoff_func, option_type=option_type,seed=random_seed)
-                hedge.generate_paths()
-                hedge.cal_price()
-                hedge.Greeks(name='delta')
-                
-                #计算吨数、权利金和保费
-                trade_num = round(Insurance_scale * (1 - 0.05 - 0.3) / price, 2)
-                rights_fee = round(trade_num * price + Insurance_scale * 0.3, 2)
-                insurance_fee = round(trade_num * price / 0.65, 2)
-                
-                result_data.append({
-                    "期权类型": option_type,
-                    "标的代码": underlying,
-                    "交易方式": tradeway,
-                    "行权方式": strikeway,
-                    "合约期限": f'{maturity_input // 22}个月',
-                    "采价期": price_picker,
-                    "入场价格": spot_price,
-                    "执行价格": strike_price,
-                    "交易数量": trade_num,
-                    '权利金': rights_fee,
-                    '保费': insurance_fee,
-                    '入场手数': int(hedge.delta * trade_num / int(multiplier)),
-                    '报价权利金率': round(price / strike_price / 0.65 * 0.95, 4),
-                    '实际权利金率': round(price / strike_price , 4),
-                    '保费率': round(price / strike_price / 0.65, 4)
-                })
+                try:
+                    payoff_func = get_payoff_function(option_type, CP, strike_price, barrier_price)
+                    S = [spot_price]
+                    option = OTCOptionPricingSystem(S=S, K=strike_price, maturity=maturity_input, r=r, q=0, sigma=volatility1, n=10, N=N, payoff=payoff_func, option_type=option_type,seed=random_seed)
+                    option.generate_paths()
+                    price = option.cal_price()
+                    
+                    hedge = OTCOptionPricingSystem(S=S, K=strike_price, maturity=maturity_input, r=r, q=0, sigma=volatility2, n=10, N=N, payoff=payoff_func, option_type=option_type,seed=random_seed)
+                    hedge.generate_paths()
+                    hedge.cal_price()
+                    hedge.Greeks(name='delta')
+                    
+                    #计算吨数、权利金和保费
+                    trade_num = round(Insurance_scale * (1 - 0.05 - 0.3) / price, 2)
+                    rights_fee = round(trade_num * price + Insurance_scale * 0.3, 2)
+                    insurance_fee = round(trade_num * price / 0.65, 2)
+                    today=datetime.datetime.today().strftime('%Y%m%d')
+                    endday=get_future_trading_date(maturity_input)
+                    result_data.append({
+                        "期权类型": option_type,
+                        "标的代码": underlying,
+                        "交易方式": tradeway,
+                        "开始日期": f'{today}',
+                        "结束日期": f'{endday}',
+                        "采价期": f'{today}-{endday}',
+                        "入场价格": spot_price,
+                        "执行价格": strike_price,
+                        "交易数量": trade_num,
+                        '权利金': rights_fee,
+                        '保费': insurance_fee,
+                        '入场手数': int(hedge.delta * trade_num / int(multiplier)),
+                        '报价权利金率': round(price / strike_price / 0.65 * 0.95, 4),
+                        '实际权利金率': round(price / strike_price , 4),
+                        '保费率': round(price / strike_price / 0.65, 4),
+                        '估算天数':f'{maturity_input}'
+                    })
 
-                table_data.append({
-                    "标的合约": underlying,
-                    "期权类型": option_type,
-                    "交易方向": "大地保险买入" if tradeway == '海通卖出' else "大地保险卖出",
-                    "期权期限": f'{maturity_input // 22}个月',
-                    "采价期": price_picker,
-                    "行权价格": "入场价格*100%",
-                    "封顶赔付价格": barrier_price,
-                    "期权费率": round(price / strike_price / 0.65 * 0.95, 4),
-                    "交易数量": "目标保费/（保险费率*行权价格）",
-                    "保险费率": round(price / strike_price / 0.65, 4),
-                    "估算保费": insurance_fee,
-                    "估算入场价格": spot_price,
-                    "估算行权价格": strike_price,
-                    "估算吨数": trade_num
-                })
+                    table_data.append({
+                        "标的合约": underlying,
+                        "期权类型": option_type,
+                        "交易方向": "大地保险买入" if tradeway == '海通卖出' else "大地保险卖出",
+                        "期权期限": f'{today}-{endday}',
+                        "采价期": price_picker,
+                        "行权价格": "入场价格*100%",
+                        "封顶赔付价格": barrier_price,
+                        "期权费率": round(price / strike_price / 0.65 * 0.95, 4),
+                        "交易数量": "目标保费/（保险费率*行权价格）",
+                        "保险费率": round(price / strike_price / 0.65, 4),
+                        "估算保费": insurance_fee,
+                        "估算入场价格": spot_price,
+                        "估算行权价格": strike_price,
+                        "估算吨数": trade_num
+                    })
 
-                # 更新进度条
-                current_iteration += 1
-                progress_bar.progress(current_iteration / total_iterations)
+                    # 更新进度条
+                    current_iteration += 1
+                    progress_bar.progress(current_iteration / total_iterations)
 
-                # 模拟计算的延迟，显示进度条变化
-                time.sleep(0.5)  # 模拟延迟，可以移除
+                    # 模拟计算的延迟，显示进度条变化
+                    time.sleep(0.5)  # 模拟延迟，可以移除
+                except ValueError:
+                    st.write(f"本年剩余交易日不支持{maturity_input//22}个月期限")
                 
 
 
@@ -565,7 +602,6 @@ with col3:
         st.dataframe(results_df.T)
         st.write('Excel报价')
         st.dataframe(table_data)
-
 
 
 
