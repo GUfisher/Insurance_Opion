@@ -374,7 +374,7 @@ def create_dual_axis_chart(x, y1, y2, key_points=None, use_dual_axis=True,
                       line=dict(width=4),
                       selector=dict(type='scatter'))
 
-    fig.update_layout(height=400,
+    fig.update_layout(
         updatemenus=[dict(type="buttons",
                           showactive=False,
                           buttons=[dict(label="PLAY",
