@@ -1,6 +1,26 @@
 import os
 import subprocess
 import sys
+# 检查缺失的包并安装
+
+def install_package(package):
+    """Install the given package using pip with Tsinghua mirror."""
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package, "-i", "https://pypi.tuna.tsinghua.edu.cn/simple"])
+
+def check_and_install(package_name):
+    """Check if a package is installed. If not, install it."""
+    try:
+        __import__(package_name)
+        print(f"{package_name} is already installed.")
+    except ImportError:
+        print(f"{package_name} is not installed. Installing now...")
+        install_package(package_name)
+        
+packages = ['numpy', 'pandas', 'plotly','tushare','streamlit','dateutil']
+
+for package in packages:
+    check_and_install(package)
+
 from dateutil.relativedelta import relativedelta
 import streamlit as st
 import numpy as np
