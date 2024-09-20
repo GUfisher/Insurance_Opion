@@ -272,6 +272,157 @@ class OTCOptionPricingSystem:
         self.traceback_df=traceback_df
 
 
+def create_dual_axis_chart(x, y1, y2, key_points=None, use_dual_axis=True, 
+                           chart_title="Dual Axis Chart", 
+                           y1_title="Y1 Axis", 
+                           y2_title="Y2 Axis", 
+                           series1_name="Series 1", 
+                           series2_name="Series 2"):
+
+    # 创建图表
+    fig = go.Figure()
+
+    # 添加第一条数据线（左侧 y 轴或单一 y 轴）
+    fig.add_trace(go.Scatter(
+        x=x, y=y1, 
+        mode='lines+markers',
+        name=series1_name,
+        line=dict(color='cyan', width=4),
+        marker=dict(size=10, color='cyan', symbol='circle', line=dict(color='white', width=2)),
+        fill='tonexty',  # 填充到下一个y值，但不填到 x 轴
+        fillcolor='rgba(0,255,255,0.2)',  # 半透明区域填充
+        hoverinfo='text',
+        hovertext=[f"X: {val}<br>Y: {y}" for val, y in zip(x, y1)]
+    ))
+
+    # 添加第二条数据线（如果使用双轴则为右侧 y 轴）
+    fig.add_trace(go.Scatter(
+        x=x, y=y2, 
+        mode='lines+markers',
+        name=series2_name,
+        line=dict(color='magenta', width=4),
+        marker=dict(size=10, color='magenta', symbol='circle', line=dict(color='white', width=2)),
+        fill='tonexty',  # 填充到下一个y值，但不填到 x 轴
+        fillcolor='rgba(255,0,255,0.2)',  # 半透明区域填充
+        hoverinfo='text',
+        hovertext=[f"X: {val}<br>Y: {y}" for val, y in zip(x, y2)],
+        yaxis="y2" if use_dual_axis else 'y'  # 根据是否启用双轴决定 y 轴
+    ))
+
+        # 根据是否使用双轴动态更新布局
+    # 动态设置 y1 和 y2 轴的最小值和最大值
+    y1_min = min(y1) * 0.95  # y1 的最小值设为实际最小值的 95%
+    y1_max = max(y1) * 1.05  # y1 的最大值设为实际最大值的 105%
+
+    y2_min = min(y2) * 0.95  # y2 的最小值设为实际最小值的 95%
+    y2_max = max(y2) * 1.05  # y2 的最大值设为实际最大值的 105%
+
+    layout_settings = dict(
+        title=chart_title,
+        title_font=dict(size=30, color='white', family='Arial Black'),
+        xaxis=dict(
+            showgrid=True,
+            gridwidth=0.5,
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            tickfont=dict(color='white'),
+            tickangle=-45,
+            zeroline=False,
+        ),
+        yaxis=dict(
+            title=y1_title,
+            showgrid=True,
+            gridwidth=0.5,
+            gridcolor='rgba(255, 255, 255, 0.1)',
+            tickfont=dict(color='white'),
+            zeroline=False,
+            range=[y1_min, y1_max],  # 自动设置 y1 轴的范围，使其合适
+        ),
+        plot_bgcolor='rgba(10, 10, 10, 0.95)',
+        paper_bgcolor='rgba(10, 10, 10, 0.95)',
+        font=dict(color='white'),
+        legend=dict(
+            font=dict(color='white'),
+            orientation='h',
+            xanchor='center', x=0.5, y=-0.2,
+            bgcolor='rgba(255, 255, 255, 0.1)',
+            bordercolor='white', borderwidth=1
+        ),
+        margin=dict(l=60, r=60, t=80, b=100),
+        hovermode='x',
+        dragmode='zoom',
+        autosize=True
+    )
+
+    # 如果使用双轴，更新右侧 Y 轴
+    if use_dual_axis:
+        layout_settings['yaxis2'] = dict(
+            title=y2_title,
+            overlaying='y',
+            side='right',
+            showgrid=False,
+            tickfont=dict(color='white'),
+            zeroline=False,
+            range=[y2_min, y2_max],  # 自动设置 y2 轴的范围，使其合适
+        )
+
+    # 更新布局
+    fig.update_layout(**layout_settings)
+
+    # 添加渐进式动画
+    fig.update_traces(mode="markers+lines", 
+                      marker=dict(size=8, opacity=1),
+                      line=dict(width=4),
+                      selector=dict(type='scatter'))
+
+    fig.update_layout(
+        updatemenus=[dict(type="buttons",
+                          showactive=False,
+                          buttons=[dict(label="PLAY",
+                                        method="animate",
+                                        args=[None, dict(frame=dict(duration=500, redraw=True),
+                                                         fromcurrent=True,
+                                                         mode='immediate')])])]
+    )
+
+    # 定义动画帧
+    frames = [go.Frame(data=[go.Scatter(x=x[:k+1], y=y1[:k+1],
+                                        mode='lines+markers', line=dict(color='cyan')),
+                             go.Scatter(x=x[:k+1], y=y2[:k+1],
+                                        mode='lines+markers', line=dict(color='magenta'))])
+              for k in range(1, len(x))]
+
+    # 添加帧到图表
+    fig.frames = frames
+
+    # 如果提供了关键点字典，添加注释
+    if key_points:
+        for key, details in key_points.items():
+            key_date = pd.to_datetime(key, format='%Y%m%d')  # 格式化 key 为 datetime 类型
+            if key_date in pd.to_datetime(x).values:
+                index = np.where(pd.to_datetime(x) == key_date)[0][0]  # 查找 key 对应的索引
+                if details["line"] == "y1":
+                    y_value = y1[index]
+                elif details["line"] == "y2":
+                    y_value = y2[index]
+                else:
+                    continue  # 如果没有指定正确的线条，跳过此注释
+                
+                # 使用 ax 和 ay 参数手动调整注释框位置
+                fig.add_annotation(
+                    x=key_date,
+                    y=y_value,
+                    text=details["text"],
+                    showarrow=True,  # 保持箭头
+                    arrowhead=2,
+                    ax=details.get("ax", 0),  # 获取自定义的 x 轴方向偏移量，默认为 0
+                    ay=details.get("ay", -40),  # 获取自定义的 y 轴方向偏移量，默认为 -40
+                    font=dict(color='white', size=12, family='Arial'),
+                    bgcolor='rgba(0,0,0,0.8)',
+                    bordercolor='magenta',
+                    borderwidth=2
+                )
+
+    return fig
 # 获取期货合约基本信息
 def get_active_futures_contract_info(exchange=None):
     # 获取所有合约信息
@@ -290,7 +441,13 @@ def get_futures_daily(ts_code, start_date, end_date):
     df = pro.fut_daily(ts_code=ts_code, start_date=start_date, end_date=end_date)
     df = df.sort_index(ascending=False)
     df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
-    return df       
+    fig=create_dual_axis_chart(x=df['trade_date'], y1=df['close'], y2=df['oi'], key_points=None, use_dual_axis=True, 
+                           chart_title=f"{ts_code} Chart", 
+                           y1_title="收盘价", 
+                           y2_title="持仓量", 
+                           series1_name="收盘价", 
+                           series2_name="持仓量")
+    return df,fig       
 
 
 def calculate_historical_volatility(daily_data, days):
@@ -390,7 +547,6 @@ def get_future_trading_date(trading_days_after=22):
     return future_trading_date
 
 
-
 def call_payoff(close, k ,B=None):
     if B==None:
         return max(close[-1] - k, 0)
@@ -482,7 +638,7 @@ with col1:
 
 with col2:
     st.header("定价参数")
-    daily_data = get_futures_daily(underlying, '1999-01-01', '2099-01-04')
+    daily_data,fig = get_futures_daily(underlying, '1999-01-01', '2099-01-04')
             
     if daily_data.empty:
         st.write(f"没有找到 {underlying} 的价格数据。")
@@ -592,7 +748,8 @@ with col3:
                     # 模拟计算的延迟，显示进度条变化
                     time.sleep(0.5)  # 模拟延迟，可以移除
                 except ValueError:
-                    st.write(f"本年剩余交易日不支持{maturity_input//22}个月期限")
+                    st.write('过于虚值！请检查行权比例')
+             
                 
 
 
@@ -602,6 +759,8 @@ with col3:
         st.dataframe(results_df.T)
         st.write('Excel报价')
         st.dataframe(table_data)
+
+st.plotly_chart(fig)
 
 
 
