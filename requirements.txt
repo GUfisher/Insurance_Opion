@@ -1,3 +1,4 @@
+--index-url https://pypi.tuna.tsinghua.edu.cn/simple  # 使用清华镜像源
 streamlit
 pandas
 plotly
