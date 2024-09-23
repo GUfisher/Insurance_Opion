@@ -369,7 +369,7 @@ def create_dual_axis_chart(x, y1, y2, key_points=None, use_dual_axis=True,
     fig.update_layout(**layout_settings)
 
     # 添加渐进式动画
-    fig.update_traces(mode="markers+lines", 
+    fig.update_traces(mode="lines", 
                       marker=dict(size=8, opacity=1),
                       line=dict(width=4),
                       selector=dict(type='scatter'))
@@ -386,9 +386,9 @@ def create_dual_axis_chart(x, y1, y2, key_points=None, use_dual_axis=True,
 
     # 定义动画帧
     frames = [go.Frame(data=[go.Scatter(x=x[:k+1], y=y1[:k+1],
-                                        mode='lines+markers', line=dict(color='cyan')),
+                                        mode='lines', line=dict(color='cyan')),
                              go.Scatter(x=x[:k+1], y=y2[:k+1],
-                                        mode='lines+markers', line=dict(color='magenta'))])
+                                        mode='lines', line=dict(color='magenta'))])
               for k in range(1, len(x))]
 
     # 添加帧到图表
